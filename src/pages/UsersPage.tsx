@@ -1,36 +1,59 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayoute from '../layouts/MainLayoute';
 import { useDispatch, useSelector } from 'react-redux';
-import { addUser, deleteUser, selectAllUsers } from '../store/slices/usersSlice';
-import { type AppDispatch, type RootState } from '../store/store';
+import {
+    fetchUsers,
+    addUser,
+    deleteUser,
+    selectAllUsers,
+    selectUsersLoading,
+    selectUsersError,
+    clearError
+} from '../store/slices/usersSlice';
+import { type AppDispatch } from '../store/store';
 
 const UsersPage: React.FC = () => {
 
-    const users = useSelector((state: RootState) => selectAllUsers(state))
-
     const dispatch = useDispatch<AppDispatch>();
+
+    const users = useSelector(selectAllUsers);
+    const loading = useSelector(selectUsersLoading);
+    const error = useSelector(selectUsersError);
 
     const [newUserName, setNewUserName] = useState('');
     const [newUserEmail, setNewUserEmail] = useState('');
     const [showForm, setShowForm] = useState(false);
 
-    const handleAddUser = () => {
-        if (newUserName.trim() && newUserEmail.trim()) {
-            dispatch(addUser({
-                name: newUserName.trim(),
-                email: newUserEmail.trim()
-            }))
+    useEffect(() => {
+        dispatch(fetchUsers());
+    }, [dispatch])
 
-            setNewUserName('')
-            setNewUserEmail('')
-            setShowForm(false)
+    const handleAddUser = async () => {
+        if (newUserName.trim() && newUserEmail.trim()) {
+            try {
+                await dispatch(addUser({
+                    name: newUserName.trim(),
+                    email: newUserEmail.trim()
+                })).unwrap();
+
+                setNewUserName('')
+                setNewUserEmail('')
+                setShowForm(false)
+            } catch (error) {
+                console.error('Ошибка создания пользователя', error);
+            }
         }
     }
 
-    const handleDeleteUser = (userId: number) => {
+    const handleDeleteUser = async (userId: number) => {
         if (window.confirm('Уверены что хотите удалить пользователя?')) {
-            dispatch(deleteUser(userId))
+            try {
+                await dispatch(deleteUser(userId)).unwrap();
+            } catch (error) {
+                console.error('Ошибка удаления пользователя', error);
+            }
+
         }
     }
 
@@ -59,7 +82,10 @@ const UsersPage: React.FC = () => {
                             value={newUserEmail}
                             onChange={(e) => setNewUserEmail(e.target.value)}
                         />
-                        <button onClick={handleAddUser}>
+                        <button
+                            onClick={handleAddUser}
+                            disabled={loading}
+                        >
                             Добавить
                         </button>
                     </div>
@@ -67,6 +93,13 @@ const UsersPage: React.FC = () => {
 
                 <div>
                     <h2>Список пользователей</h2>
+                    {loading && (
+                        <h1>Загрузка...</h1>
+                    )}
+
+                    {error && (
+                        <p>Ошибка {error}</p>
+                    )}
                     {users.map(user => (
                         <div key={user.id} className="user-card">
                             <h3>{user.name}</h3>
